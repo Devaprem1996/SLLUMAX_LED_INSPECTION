@@ -8,7 +8,7 @@ echo.
 :: Check Python installation
 where python >nul 2>nul
 if %errorlevel% neq 0 (
-    echo [INFO] Python is not installed. Attempting one-click installation via Windows Package Manager (winget)...
+    echo [INFO] Python is not installed. Attempting one-click installation via Windows Package Manager winget...
     where winget >nul 2>nul
     if %errorlevel% neq 0 (
         echo [ERROR] Python and winget are both missing on this system.
