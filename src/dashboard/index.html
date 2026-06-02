@@ -1,0 +1,1276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LED Pin QC Operator Portal</title>
+    <!-- Modern typography from Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        /* Modern Premium Aesthetics - CSS Custom Properties */
+        :root {
+            --bg-base: #090a0f;
+            --bg-surface: rgba(18, 20, 32, 0.7);
+            --border-glow: rgba(255, 255, 255, 0.08);
+            --color-text-primary: #f3f4f6;
+            --color-text-secondary: #9ca3af;
+            
+            /* Status Accents */
+            --color-pass: #10b981;
+            --color-pass-glow: rgba(16, 185, 129, 0.2);
+            --color-warn: #f59e0b;
+            --color-warn-glow: rgba(245, 158, 11, 0.2);
+            --color-fail: #ef4444;
+            --color-fail-glow: rgba(239, 68, 68, 0.2);
+            --color-missing: #6b7280;
+            
+            --panel-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg-base);
+            color: var(--color-text-primary);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(at 10% 10%, rgba(31, 38, 70, 0.3) 0px, transparent 50%),
+                radial-gradient(at 90% 90%, rgba(14, 28, 54, 0.4) 0px, transparent 50%);
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 40px;
+            background: rgba(11, 13, 23, 0.6);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-glow);
+        }
+
+        header h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        header h1 span {
+            background: linear-gradient(135deg, #a78bfa, #6366f1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-size: 0.8rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            padding: 2px 8px;
+            border-radius: 4px;
+        }
+
+        .refresh-status {
+            font-size: 0.85rem;
+            color: var(--color-text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .refresh-dot {
+            width: 8px;
+            height: 8px;
+            background-color: var(--color-pass);
+            border-radius: 50%;
+            box-shadow: 0 0 8px var(--color-pass);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+
+        /* Layout Grid and Sidebar Sizing */
+        .app-layout {
+            display: flex;
+            min-height: 100vh;
+            width: 100%;
+        }
+
+        .sidebar {
+            width: 340px;
+            min-width: 340px;
+            background: rgba(11, 13, 23, 0.95);
+            backdrop-filter: blur(12px);
+            border-right: 1px solid var(--border-glow);
+            padding: 25px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            overflow-y: auto;
+            box-shadow: 4px 0 25px rgba(0, 0, 0, 0.5);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .sidebar.collapsed {
+            width: 0;
+            min-width: 0;
+            padding-left: 0;
+            padding-right: 0;
+            opacity: 0;
+            border-right: none;
+            overflow: hidden;
+        }
+
+        .sidebar-toggle-btn {
+            position: fixed;
+            left: 322px;
+            top: 25px;
+            z-index: 1000;
+            background: rgba(15, 23, 42, 0.9);
+            backdrop-filter: blur(8px);
+            border: 1px solid var(--border-glow);
+            color: #fff;
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+        }
+
+        .sidebar-toggle-btn:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: var(--color-pass);
+            transform: scale(1.08);
+        }
+
+        .sidebar-toggle-btn.collapsed {
+            left: 15px;
+        }
+
+        .sidebar-header {
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            padding-bottom: 15px;
+            margin-bottom: 10px;
+        }
+
+        .sidebar-header h2 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #fff;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .sidebar-header h2 span {
+            display: block;
+            font-size: 0.75rem;
+            color: var(--color-text-secondary);
+            font-weight: 500;
+            margin-top: 3px;
+        }
+
+        .sidebar-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        .sidebar-card h3 {
+            font-size: 0.95rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #fff;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .main-content {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+
+        /* Dashboard Layout Grid */
+        .dashboard-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            padding: 25px 40px;
+            flex-grow: 1;
+        }
+
+        /* Glassmorphic Panel Cards */
+        .glass-panel {
+            background: var(--bg-surface);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--border-glow);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: var(--panel-shadow);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .glass-panel:hover {
+            border-color: rgba(255, 255, 255, 0.12);
+        }
+
+        .panel-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: var(--color-text-primary);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* 1. Yield Stats Panel */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            grid-column: span 2;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            border-radius: 12px;
+            padding: 18px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 800;
+            margin-top: 4px;
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: var(--color-text-secondary);
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-card.passed .stat-value { color: var(--color-pass); text-shadow: 0 0 10px var(--color-pass-glow); }
+        .stat-card.failed .stat-value { color: var(--color-fail); text-shadow: 0 0 10px var(--color-fail-glow); }
+        .stat-card.warning .stat-value { color: var(--color-warn); text-shadow: 0 0 10px var(--color-warn-glow); }
+
+        /* Video Streaming Panel Layouts */
+        .inspect-view-grid {
+            display: grid;
+            grid-template-rows: auto 1fr;
+            gap: 15px;
+        }
+
+        .live-stream-viewer {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            position: relative;
+            min-height: 280px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .live-stream-viewer img {
+            width: 100%;
+            height: auto;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        /* 2. Connector Schematic Visualizer Map */
+        .connector-map-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 12px;
+            border: 1px dashed rgba(255, 255, 255, 0.06);
+            position: relative;
+            min-height: 280px;
+            padding: 20px;
+        }
+
+        svg.connector-svg {
+            width: 100%;
+            height: 100%;
+            max-width: 580px;
+            max-height: 300px;
+        }
+
+        /* SVG Node Styling */
+        .pin-node {
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+            stroke-width: 1.5px;
+            stroke: rgba(255, 255, 255, 0.2);
+        }
+
+        .pin-node:hover {
+            stroke: #fff;
+            stroke-width: 3px;
+            filter: drop-shadow(0 0 8px currentColor);
+        }
+
+        .pin-node.status-pass { fill: var(--color-pass); color: var(--color-pass); }
+        .pin-node.status-warn { fill: var(--color-warn); color: var(--color-warn); }
+        .pin-node.status-bent { fill: var(--color-fail); color: var(--color-fail); }
+        .pin-node.status-missing { fill: var(--color-missing); color: var(--color-missing); stroke-dasharray: 2; }
+
+        /* Dynamic Tooltip inside Panel */
+        .pin-tooltip-card {
+            background: rgba(15, 17, 28, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 16px;
+            font-size: 0.9rem;
+            line-height: 1.4;
+            display: none;
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            backdrop-filter: blur(8px);
+        }
+
+        .pin-tooltip-header {
+            font-weight: 700;
+            margin-bottom: 6px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .pin-tooltip-body {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            color: var(--color-text-secondary);
+        }
+
+        /* 3. Snapshot View Card */
+        .image-viewer {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            position: relative;
+            min-height: 280px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            cursor: zoom-in;
+            transition: border-color 0.2s;
+        }
+
+        .image-viewer:hover {
+            border-color: rgba(99, 102, 241, 0.4);
+        }
+
+        .image-viewer img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        .zoom-badge {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: rgba(0, 0, 0, 0.75);
+            padding: 5px 10px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--color-text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            transition: all 0.2s;
+            pointer-events: none;
+            opacity: 0.7;
+        }
+
+        .image-viewer:hover .zoom-badge {
+            opacity: 1;
+            color: #fff;
+            background: rgba(99, 102, 241, 0.85);
+            border-color: rgba(99, 102, 241, 0.3);
+        }
+
+        .image-placeholder {
+            color: var(--color-text-secondary);
+            font-size: 0.95rem;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            padding: 30px;
+        }
+
+        .image-label-badge {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background: rgba(0,0,0,0.7);
+            padding: 5px 12px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* 4. Settings Form Styles */
+        .settings-form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .settings-form-group label {
+            font-size: 0.85rem;
+            color: var(--color-text-secondary);
+            font-weight: 500;
+        }
+
+        .settings-input {
+            width: 100%;
+            background: #111422;
+            border: 1px solid var(--border-glow);
+            border-radius: 8px;
+            padding: 12px 16px;
+            color: #fff;
+            font-family: inherit;
+            font-size: 0.9rem;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+
+        .settings-input:focus {
+            border-color: rgba(99, 102, 241, 0.5);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+        }
+
+        .settings-btn {
+            background: linear-gradient(135deg, #6366f1, #4f46e5);
+            color: #fff;
+            font-family: inherit;
+            font-weight: 600;
+            font-size: 0.95rem;
+            border: none;
+            border-radius: 8px;
+            padding: 12px;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .settings-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(99, 102, 241, 0.45);
+        }
+
+        .settings-btn:active {
+            transform: translateY(0);
+        }
+
+        /* 5. Historical Inspection Log Panel */
+        .history-panel {
+            grid-column: span 2;
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+            max-height: 300px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 0.9rem;
+        }
+
+        th, td {
+            padding: 14px 18px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        }
+
+        th {
+            background: rgba(255, 255, 255, 0.02);
+            color: var(--color-text-secondary);
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.5px;
+        }
+
+        tr {
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        tr:hover {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        tr.active-row {
+            background: rgba(99, 102, 241, 0.08) !important;
+            border-left: 3px solid #6366f1;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .badge-pass { background-color: rgba(16, 185, 129, 0.15); color: var(--color-pass); border: 1px solid rgba(16, 185, 129, 0.3); }
+        .badge-warn { background-color: rgba(245, 158, 11, 0.15); color: var(--color-warn); border: 1px solid rgba(245, 158, 11, 0.3); }
+        .badge-fail { background-color: rgba(239, 68, 68, 0.15); color: var(--color-fail); border: 1px solid rgba(239, 68, 68, 0.3); }
+
+        /* 6. High-Resolution Fullscreen Lightbox Modal */
+        .lightbox-modal {
+            display: none;
+            position: fixed;
+            z-index: 9999;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(6, 8, 14, 0.96);
+            backdrop-filter: blur(12px);
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .lightbox-modal.active {
+            display: flex;
+            opacity: 1;
+        }
+
+        .lightbox-content-wrapper {
+            position: relative;
+            max-width: 92%;
+            max-height: 90%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            animation: lightboxZoom 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        @keyframes lightboxZoom {
+            from { transform: scale(0.9); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        .lightbox-img {
+            max-width: 100%;
+            max-height: 80vh;
+            object-fit: contain;
+            border-radius: 8px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .lightbox-caption {
+            color: #fff;
+            font-size: 1.1rem;
+            font-weight: 600;
+            text-align: center;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            background: rgba(0, 0, 0, 0.6);
+            padding: 8px 18px;
+            border-radius: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .lightbox-close {
+            position: absolute;
+            top: -50px;
+            right: 0;
+            color: #ccc;
+            font-size: 32px;
+            font-weight: 300;
+            cursor: pointer;
+            transition: color 0.2s, transform 0.2s;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 50%;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .lightbox-close:hover {
+            color: #fff;
+            background: rgba(239, 68, 68, 0.8);
+            border-color: transparent;
+            transform: rotate(90deg);
+        }
+
+        /* Media Queries for Laptop and Mobile Sizing Responsiveness */
+        @media (max-width: 1400px) {
+            .dashboard-container {
+                padding: 15px 20px;
+                gap: 15px;
+            }
+            .glass-panel {
+                padding: 18px;
+            }
+            header {
+                padding: 15px 25px;
+            }
+            header h1 {
+                font-size: 1.3rem;
+            }
+            .stat-value {
+                font-size: 1.6rem;
+            }
+            .stat-card {
+                padding: 12px;
+            }
+        }
+
+        @media (max-width: 1100px) {
+            .dashboard-container {
+                grid-template-columns: 1fr;
+            }
+            .stats-grid {
+                grid-column: span 1;
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .history-panel {
+                grid-column: span 1;
+            }
+            .live-stream-viewer, .connector-map-container, .image-viewer {
+                min-height: 320px;
+            }
+            svg.connector-svg {
+                max-height: 320px;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+            header {
+                flex-direction: column;
+                gap: 10px;
+                text-align: center;
+            }
+            .live-stream-viewer, .connector-map-container, .image-viewer {
+                min-height: 240px;
+            }
+            svg.connector-svg {
+                max-height: 240px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-layout">
+        <!-- Left Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h2>LED PIN QC <span>HMI Operator Portal</span></h2>
+            </div>
+            
+            <!-- Camera Stream Settings -->
+            <div class="sidebar-card">
+                <h3>Camera Stream Settings</h3>
+                <div style="display: flex; flex-direction: column; gap: 15px;">
+                    <div class="settings-form-group">
+                        <label for="source-type">Conveyor Input Source Type</label>
+                        <select id="source-type" onchange="toggleSourceInputs()" class="settings-input">
+                            <option value="video" selected>Recorded Video File (.mp4)</option>
+                            <option value="webcam">Local USB Webcam index</option>
+                            <option value="cp_plus">CP Plus IP Camera (RTSP)</option>
+                            <option value="custom_rtsp">Custom RTSP Link (Custom)</option>
+                        </select>
+                    </div>
+
+                    <div id="video-input-group" class="settings-form-group">
+                        <label for="source-video-file">Select Preloaded File</label>
+                        <select id="source-video-file" class="settings-input">
+                            <option value="data/defect.mp4" selected>defect.mp4 (Connector with defective bent pins)</option>
+                            <option value="data/defect_1.mp4">defect_1.mp4 (Second Defective Connector Run)</option>
+                            <option value="data/GOOD.mp4">GOOD.mp4 (All Golden/Passed Pin Connectors)</option>
+                        </select>
+                    </div>
+
+                    <div id="webcam-input-group" class="settings-form-group" style="display: none;">
+                        <label for="source-webcam-index">USB Webcam Device Index</label>
+                        <input type="number" id="source-webcam-index" value="0" min="0" max="9" class="settings-input" />
+                    </div>
+
+                    <div id="cp-plus-input-group" class="settings-form-group" style="display: none;">
+                        <div style="display: flex; flex-direction: column; gap: 10px;">
+                            <div>
+                                <label for="cpplus-ip">Camera IP Address</label>
+                                <input type="text" id="cpplus-ip" value="192.168.1.250" class="settings-input" placeholder="e.g. 192.168.1.250" />
+                            </div>
+                            <div style="display: flex; gap: 10px;">
+                                <div style="flex: 1;">
+                                    <label for="cpplus-port">Port</label>
+                                    <input type="text" id="cpplus-port" value="554" class="settings-input" />
+                                </div>
+                                <div style="flex: 1;">
+                                    <label for="cpplus-channel">Channel</label>
+                                    <input type="text" id="cpplus-channel" value="1" class="settings-input" />
+                                </div>
+                            </div>
+                            <div style="display: flex; gap: 10px;">
+                                <div style="flex: 1;">
+                                    <label for="cpplus-username">Username</label>
+                                    <input type="text" id="cpplus-username" value="admin" class="settings-input" />
+                                </div>
+                                <div style="flex: 1;">
+                                    <label for="cpplus-password">Password</label>
+                                    <input type="password" id="cpplus-password" value="password" class="settings-input" />
+                                </div>
+                            </div>
+                            <div>
+                                <label for="cpplus-subtype">Subtype (Stream Type)</label>
+                                <select id="cpplus-subtype" class="settings-input">
+                                    <option value="0" selected>Main Stream (High Quality)</option>
+                                    <option value="1">Sub Stream (Low Bandwidth)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="rtsp-input-group" class="settings-form-group" style="display: none;">
+                        <label for="source-rtsp-url">Camera RTSP Link</label>
+                        <input type="text" id="source-rtsp-url" placeholder="rtsp://username:password@IP:port/path..." class="settings-input" />
+                    </div>
+
+                    <button onclick="applyNewSource()" class="settings-btn">Apply Source Stream</button>
+                    <div id="settings-status-message" style="font-size: 0.85rem; text-align: center; font-weight: 500; display: none;"></div>
+                </div>
+            </div>
+
+            <!-- Manual Action Controls Card -->
+            <div class="sidebar-card">
+                <h3>Manual QC Operations</h3>
+                <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">
+                    <button onclick="triggerForceInspect()" class="settings-btn" style="background: linear-gradient(135deg, #10b981, #059669); box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);">
+                        Force Inspect Now
+                    </button>
+                    <button onclick="triggerResetSystem()" class="settings-btn" style="background: linear-gradient(135deg, #f59e0b, #d97706); box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);">
+                        Reset System Status
+                    </button>
+                    <div id="manual-status-message" style="font-size: 0.85rem; text-align: center; font-weight: 500; display: none;"></div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Right Main Content Area -->
+        <main class="main-content">
+            <!-- Sidebar Collapse Handle Button -->
+            <button class="sidebar-toggle-btn" id="sidebar-toggle-btn" onclick="toggleSidebar()" title="Toggle Sidebar">
+                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" id="toggle-icon">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+                </svg>
+            </button>
+            <header>
+                <h1>LED PIN QC PANEL <span>HMI Web Live</span></h1>
+                <div class="refresh-status">
+                    <div class="refresh-dot"></div>
+                    Industrial Portal Running
+                </div>
+            </header>
+
+            <div class="dashboard-container">
+                <!-- 1. Yield Stats Header Panel (HIDDEN) -->
+                <div class="stats-grid" style="display: none;">
+                    <div class="stat-card">
+                        <div class="stat-value" id="stat-total">-</div>
+                        <div class="stat-label">Inspected</div>
+                    </div>
+                    <div class="stat-card passed">
+                        <div class="stat-value" id="stat-passed">-</div>
+                        <div class="stat-label">Passed</div>
+                    </div>
+                    <div class="stat-card warning">
+                        <div class="stat-value" id="stat-warning">-</div>
+                        <div class="stat-label">Warnings</div>
+                    </div>
+                    <div class="stat-card failed">
+                        <div class="stat-value" id="stat-failed">-</div>
+                        <div class="stat-label">Failed</div>
+                    </div>
+                </div>
+
+                <!-- Real-Time Camera Stream Panel -->
+                <div class="glass-panel inspect-view-grid">
+                    <div class="panel-title">Real-Time Camera / Conveyor Feed</div>
+                    <div class="live-stream-viewer">
+                        <img src="/api/video_feed" alt="Real-Time Conveyor Stream Overlay" />
+                    </div>
+                </div>
+
+                <!-- Inspection Snapshot Viewer -->
+                <div class="glass-panel inspect-view-grid">
+                    <div class="panel-title">Inspection Snapshot Viewer</div>
+                    <div class="image-viewer" id="snapshot-viewer">
+                        <div class="image-placeholder">
+                            <svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375 0 11-.75 0 .375 0 01.75 0z" />
+                            </svg>
+                            Last inspected snapshot will load here when a connector arrives.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Connector Schematic Visualizer Map (HIDDEN) -->
+                <div class="glass-panel inspect-view-grid" style="display: none;">
+                    <div class="panel-title">
+                        Pin Displacement Map
+                        <span id="active-item-title" style="font-size: 0.85rem; color: var(--color-text-secondary);">No item selected</span>
+                    </div>
+                    <div class="connector-map-container">
+                        <svg class="connector-svg" id="connector-svg" viewBox="0 0 600 500">
+                            <rect x="150" y="150" width="300" height="320" rx="15" fill="rgba(255,255,255,0.02)" stroke="rgba(255,255,255,0.1)" stroke-width="2" />
+                            <line x1="300" y1="120" x2="300" y2="480" stroke="rgba(255,255,255,0.03)" stroke-width="1" stroke-dasharray="4" />
+                            <line x1="120" y1="300" x2="480" y2="300" stroke="rgba(255,255,255,0.03)" stroke-width="1" stroke-dasharray="4" />
+                            <g id="svg-pins-group"></g>
+                        </svg>
+                        <div class="pin-tooltip-card" id="pin-tooltip">
+                            <div class="pin-tooltip-header">
+                                <span id="tt-pin-id">Pin C0_R0</span>
+                                <span class="badge" id="tt-status">PASS</span>
+                            </div>
+                            <div class="pin-tooltip-body">
+                                <div>Sub-pixel Shift: <strong id="tt-shift" style="color: #fff;">-</strong></div>
+                                <div>NCC Similarity: <strong id="tt-ncc" style="color: #fff;">-</strong></div>
+                                <div>Intensity Ratio: <strong id="tt-ratio" style="color: #fff;">-</strong></div>
+                                <div style="grid-column: span 2; margin-top: 4px;">Detail: <span id="tt-detail" style="color: #fff;">-</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. Historical Inspection Log Panel (HIDDEN) -->
+                <div class="glass-panel history-panel" style="display: none;">
+                    <div class="panel-title">Historical Log Table</div>
+                    <div class="table-wrapper">
+                        <table id="history-table">
+                            <thead>
+                                <tr>
+                                    <th>Item ID</th>
+                                    <th>Timestamp</th>
+                                    <th>Overall Status</th>
+                                    <th>Passed</th>
+                                    <th>Warnings</th>
+                                    <th>Severe Bent</th>
+                                    <th>Missing</th>
+                                </tr>
+                            </thead>
+                            <tbody id="history-tbody">
+                                <tr>
+                                    <td colspan="7" style="text-align: center; color: var(--color-text-secondary);">Querying database records...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        let currentInspectionId = null;
+        let lastLoggedId = null;
+
+        // Toggle form inputs in the settings panel
+        function toggleSourceInputs() {
+            const type = document.getElementById('source-type').value;
+            document.getElementById('video-input-group').style.display = type === 'video' ? 'block' : 'none';
+            document.getElementById('webcam-input-group').style.display = type === 'webcam' ? 'block' : 'none';
+            document.getElementById('rtsp-input-group').style.display = type === 'custom_rtsp' ? 'block' : 'none';
+            document.getElementById('cp-plus-input-group').style.display = type === 'cp_plus' ? 'block' : 'none';
+        }
+
+        // Apply new camera stream source
+        async function applyNewSource() {
+            const type = document.getElementById('source-type').value;
+            let bodyData = { source_type: type };
+            
+            if (type === 'video') {
+                bodyData.source = document.getElementById('source-video-file').value;
+            } else if (type === 'webcam') {
+                bodyData.source = document.getElementById('source-webcam-index').value;
+            } else if (type === 'custom_rtsp') {
+                bodyData.custom_rtsp_url = document.getElementById('source-rtsp-url').value;
+            } else if (type === 'cp_plus') {
+                bodyData.ip = document.getElementById('cpplus-ip').value;
+                bodyData.port = document.getElementById('cpplus-port').value;
+                bodyData.username = document.getElementById('cpplus-username').value;
+                bodyData.password = document.getElementById('cpplus-password').value;
+                bodyData.channel = document.getElementById('cpplus-channel').value;
+                bodyData.subtype = document.getElementById('cpplus-subtype').value;
+            }
+
+            const msgEl = document.getElementById('settings-status-message');
+            msgEl.style.display = 'block';
+            msgEl.style.color = 'var(--color-text-secondary)';
+            msgEl.innerText = "Applying new stream source...";
+
+            try {
+                const res = await fetch('/api/change_source', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(bodyData)
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    msgEl.style.color = 'var(--color-pass)';
+                    msgEl.innerText = "Source successfully changed!";
+                    setTimeout(() => { msgEl.style.display = 'none'; }, 3000);
+                } else {
+                    msgEl.style.color = 'var(--color-fail)';
+                    msgEl.innerText = "Error: " + data.message;
+                }
+            } catch (err) {
+                msgEl.style.color = 'var(--color-fail)';
+                msgEl.innerText = "Failed to communicate with server: " + err;
+            }
+        }
+
+        // Trigger manual force inspection via backend POST
+        async function triggerForceInspect() {
+            const msgEl = document.getElementById('manual-status-message');
+            msgEl.style.display = 'block';
+            msgEl.style.color = 'var(--color-text-secondary)';
+            msgEl.innerText = "Triggering manual inspection...";
+            try {
+                const res = await fetch('/api/force_inspect', { method: 'POST' });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    msgEl.style.color = 'var(--color-pass)';
+                    msgEl.innerText = "Inspection triggered!";
+                    setTimeout(() => { msgEl.style.display = 'none'; }, 2000);
+                } else {
+                    msgEl.style.color = 'var(--color-fail)';
+                    msgEl.innerText = "Error: " + data.message;
+                }
+            } catch (err) {
+                msgEl.style.color = 'var(--color-fail)';
+                msgEl.innerText = "Failed to communicate with server: " + err;
+            }
+        }
+
+        // Trigger manual system reset via backend POST
+        async function triggerResetSystem() {
+            const msgEl = document.getElementById('manual-status-message');
+            msgEl.style.display = 'block';
+            msgEl.style.color = 'var(--color-text-secondary)';
+            msgEl.innerText = "Resetting system state...";
+            try {
+                const res = await fetch('/api/reset_system', { method: 'POST' });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    msgEl.style.color = 'var(--color-warn)';
+                    msgEl.innerText = "System reset to WAITING!";
+                    setTimeout(() => { msgEl.style.display = 'none'; }, 2000);
+                } else {
+                    msgEl.style.color = 'var(--color-fail)';
+                    msgEl.innerText = "Error: " + data.message;
+                }
+            } catch (err) {
+                msgEl.style.color = 'var(--color-fail)';
+                msgEl.innerText = "Failed to communicate with server: " + err;
+            }
+        }
+
+        // Toggle Sidebar open/close with arrow direction switch
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const toggleBtn = document.getElementById('sidebar-toggle-btn');
+            const icon = document.getElementById('toggle-icon');
+            
+            sidebar.classList.toggle('collapsed');
+            toggleBtn.classList.toggle('collapsed');
+            
+            if (sidebar.classList.contains('collapsed')) {
+                // Point Right
+                icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />';
+            } else {
+                // Point Left
+                icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />';
+            }
+        }
+
+        // Fetch stats and update header cards
+        async function fetchStats() {
+            try {
+                const res = await fetch('/api/stats');
+                const data = await res.json();
+                
+                document.getElementById('stat-total').innerText = data.total;
+                document.getElementById('stat-passed').innerText = data.passed;
+                document.getElementById('stat-warning').innerText = data.warning;
+                document.getElementById('stat-failed').innerText = data.failed;
+            } catch (err) {
+                console.error("Error loading stats:", err);
+            }
+        }
+
+        // Fetch history and populate logs table
+        async function fetchHistory() {
+            try {
+                const res = await fetch('/api/history');
+                const history = await res.json();
+                
+                const tbody = document.getElementById('history-tbody');
+                if (history.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--color-text-secondary);">No inspection logs recorded in database.</td></tr>`;
+                    return;
+                }
+
+                let rowsHtml = '';
+                history.forEach(item => {
+                    let badgeClass = 'badge-pass';
+                    if (item.overall_status.includes('FAIL')) badgeClass = 'badge-fail';
+                    else if (item.overall_status.includes('WARN') || item.overall_status.includes('WARNING')) badgeClass = 'badge-warn';
+
+                    const isActive = item.id === currentInspectionId ? 'class="active-row"' : '';
+                    
+                    rowsHtml += `
+                        <tr onclick="selectInspection('${item.id}', '${item.overall_status}')" id="row-${item.id}" ${isActive}>
+                            <td style="font-weight: 600;">${item.id}</td>
+                            <td style="color: var(--color-text-secondary);">${item.timestamp}</td>
+                            <td><span class="badge ${badgeClass}">${item.overall_status}</span></td>
+                            <td style="font-weight: 500;">${item.passed_pins}</td>
+                            <td style="${item.warning_pins > 0 ? 'color: var(--color-warn); font-weight:600;' : ''}">${item.warning_pins}</td>
+                            <td style="${item.severe_bent_pins > 0 ? 'color: var(--color-fail); font-weight:600;' : ''}">${item.severe_bent_pins}</td>
+                            <td style="${item.missing_pins > 0 ? 'color: var(--color-missing); font-weight:600;' : ''}">${item.missing_pins}</td>
+                        </tr>
+                    `;
+                });
+                
+                tbody.innerHTML = rowsHtml;
+
+                // Auto-select first item if none is active
+                if (!currentInspectionId && history.length > 0) {
+                    selectInspection(history[0].id, history[0].overall_status);
+                }
+            } catch (err) {
+                console.error("Error loading history:", err);
+            }
+        }
+
+        // Select specific inspection log
+        function selectInspection(id, status) {
+            if (currentInspectionId) {
+                const prevRow = document.getElementById(`row-${currentInspectionId}`);
+                if (prevRow) prevRow.classList.remove('active-row');
+            }
+
+            currentInspectionId = id;
+            const newRow = document.getElementById(`row-${currentInspectionId}`);
+            if (newRow) newRow.classList.add('active-row');
+
+            document.getElementById('active-item-title').innerText = `${id} (${status})`;
+
+            // Load snapshot image
+            const viewer = document.getElementById('snapshot-viewer');
+            viewer.innerHTML = `
+                <span class="image-label-badge">${id} Snap Verification</span>
+                <div class="zoom-badge">
+                    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="display:inline-block; vertical-align:middle;">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7" />
+                    </svg>
+                    Click to Zoom
+                </div>
+                <img src="/api/snapshot?id=${id}" alt="QC Aligned Snapshot" onclick="openLightbox(this.src, '${id} - ${status}')" onerror="imageLoadError(this)" />
+            `;
+
+            // Load pin results for layout map
+            loadPinLayout(id);
+        }
+
+        function imageLoadError(img) {
+            img.parentElement.innerHTML = `
+                <div class="image-placeholder" style="color: var(--color-fail);">
+                    <svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Snapshot image not found or pruned from disk storage.
+                </div>
+            `;
+        }
+
+        // Load pin coordinates and statuses to build interactive SVG
+        async function loadPinLayout(id) {
+            try {
+                let pinsCoords = [];
+                try {
+                    const profileRes = await fetch('/profiles/default_22pin.json');
+                    pinsCoords = await profileRes.json();
+                } catch(e) {
+                    console.error("Could not fetch default coordinates mapping:", e);
+                }
+
+                const res = await fetch(`/api/pins?id=${id}`);
+                const pinResults = await res.json();
+
+                const group = document.getElementById('svg-pins-group');
+                group.innerHTML = '';
+
+                pinsCoords.forEach(pin => {
+                    const qcRes = pinResults.find(r => r.id === pin.id) || { status: 'UNKNOWN', ncc: 0, shift_px: 0, ratio: 0, detail: 'No log record' };
+                    
+                    let statusClass = 'status-pass';
+                    if (qcRes.status === 'SEVERE_BENT') statusClass = 'status-bent';
+                    else if (qcRes.status === 'WARNING') statusClass = 'status-warn';
+                    else if (qcRes.status === 'MISSING') statusClass = 'status-missing';
+
+                    const svgEl = document.getElementById('connector-svg');
+                    svgEl.setAttribute('viewBox', '0 0 600 500');
+
+                    const mapX = pin.cx + 100;
+                    const mapY = pin.cy;
+
+                    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    circle.setAttribute('cx', mapX);
+                    circle.setAttribute('cy', mapY);
+                    circle.setAttribute('r', pin.w ? pin.w / 2 : 12);
+                    circle.setAttribute('class', `pin-node ${statusClass}`);
+                    circle.setAttribute('data-id', pin.id);
+                    
+                    circle.style.color = statusClass === 'status-pass' ? 'var(--color-pass)' : (statusClass === 'status-warn' ? 'var(--color-warn)' : (statusClass === 'status-bent' ? 'var(--color-fail)' : 'var(--color-missing)'));
+                    
+                    circle.addEventListener('mouseover', () => showTooltip(pin.id, qcRes, mapX, mapY));
+                    circle.addEventListener('mouseout', hideTooltip);
+
+                    group.appendChild(circle);
+                });
+            } catch (err) {
+                console.error("Error loading pin results:", err);
+            }
+        }
+
+        function showTooltip(pinId, qcRes, x, y) {
+            const tt = document.getElementById('pin-tooltip');
+            document.getElementById('tt-pin-id').innerText = `Pin ${pinId}`;
+            
+            const badge = document.getElementById('tt-status');
+            badge.className = `badge badge-${qcRes.status.toLowerCase().replace('severe_', '')}`;
+            badge.innerText = qcRes.status;
+
+            document.getElementById('tt-shift').innerText = qcRes.shift_px !== null ? `${qcRes.shift_px.toFixed(2)} px` : 'N/A';
+            document.getElementById('tt-ncc').innerText = qcRes.ncc !== null ? qcRes.ncc.toFixed(3) : 'N/A';
+            document.getElementById('tt-ratio').innerText = qcRes.ratio !== null ? qcRes.ratio.toFixed(2) : 'N/A';
+            document.getElementById('tt-detail').innerText = qcRes.detail;
+
+            tt.style.display = 'block';
+        }
+
+        function hideTooltip() {
+            document.getElementById('pin-tooltip').style.display = 'none';
+        }
+
+        // Live check for new inspections in background
+        async function checkLatestInspection() {
+            try {
+                const res = await fetch('/api/latest_inspection');
+                const data = await res.json();
+                if (data.id && data.id !== lastLoggedId) {
+                    lastLoggedId = data.id;
+                    fetchStats();
+                    fetchHistory();
+                    selectInspection(data.id, data.status);
+                }
+            } catch (err) {
+                console.error("Error checking latest inspection:", err);
+            }
+        }
+
+        // Initial fetch
+        fetchStats();
+        fetchHistory();
+
+        // Polling cycles
+        setInterval(checkLatestInspection, 500);
+
+        // Lightbox Functions
+        function openLightbox(src, captionText) {
+            const modal = document.getElementById('lightbox-modal');
+            const img = document.getElementById('lightbox-img');
+            const caption = document.getElementById('lightbox-caption');
+            
+            img.src = src;
+            caption.innerText = captionText;
+            
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeLightbox() {
+            const modal = document.getElementById('lightbox-modal');
+            modal.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+
+        // Close on ESC keypress
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeLightbox();
+            }
+        });
+    </script>
+
+    <!-- Fullscreen Lightbox Modal -->
+    <div id="lightbox-modal" class="lightbox-modal" onclick="if(event.target === this) closeLightbox();">
+        <div class="lightbox-content-wrapper">
+            <span class="lightbox-close" onclick="closeLightbox()">&times;</span>
+            <img id="lightbox-img" class="lightbox-img" src="" alt="Fullscreen snapshot" />
+            <div id="lightbox-caption" class="lightbox-caption"></div>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,10 @@
+# Python caching
+__pycache__/
+*.pyc
+
+# Local runtime results (SQLite DB, snapshot images)
+results/
+
+# User IDE configs
+.vscode/
+.idea/

@@ -1,0 +1,31 @@
+{
+    "active_profile": "default_22pin",
+    "camera_stream": {
+        "stability_threshold": 1.2,
+        "reset_threshold": 2.5,
+        "settle_duration_seconds": 3.0,
+        "cooldown_duration_seconds": 5.0
+    },
+    "inspection_thresholds": {
+        "warn_shift_thresh": 2.0,
+        "severe_shift_thresh": 6.0,
+        "moderate_warn_shift_thresh": 5.0,
+        "moderate_severe_shift_thresh": 8.0,
+        "warn_ncc_thresh": 0.70,
+        "severe_ncc_thresh": 0.55,
+        "missing_ncc_thresh_low": 0.58,
+        "missing_ncc_thresh_mid": 0.60,
+        "missing_ncc_thresh_high": 0.70,
+        "missing_ratio_thresh_low": 0.40,
+        "missing_ratio_thresh_mid": 0.55,
+        "missing_ratio_thresh_high": 0.75,
+        "std_thresh_high": 22.0,
+        "enable_neighbor_escalation": true,
+        "neighbor_shift_thresh": 2.0,
+        "neighbor_ncc_thresh": 0.70
+    },
+    "data_pruning": {
+        "max_pass_images": 5,
+        "max_pass_age_hours": 24
+    }
+}
