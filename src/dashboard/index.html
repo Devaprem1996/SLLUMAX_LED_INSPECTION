@@ -898,11 +898,19 @@
                 <div class="glass-panel inspect-view-grid" id="camera-feed-panel">
                     <div class="panel-title">
                         <span>Real-Time Camera / Conveyor Feed</span>
-                        <button onclick="toggleMaximizeCamera()" class="icon-btn" id="maximize-btn" title="Maximize Feed">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="maximize-icon">
-                                <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
-                            </svg>
-                        </button>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <button onclick="toggleCameraActive()" class="icon-btn" id="camera-toggle-btn" title="Stop Camera">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="14" y="4" width="4" height="16" rx="1"/>
+                                    <rect x="6" y="4" width="4" height="16" rx="1"/>
+                                </svg>
+                            </button>
+                            <button onclick="toggleMaximizeCamera()" class="icon-btn" id="maximize-btn" title="Maximize Feed">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="maximize-icon">
+                                    <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
+                                </svg>
+                            </button>
+                        </div>
                     </div>
                     <div class="live-stream-viewer">
                         <img src="/api/video_feed" alt="Real-Time Conveyor Stream Overlay" />
@@ -1127,8 +1135,49 @@
                 document.getElementById('stat-passed').innerText = data.passed;
                 document.getElementById('stat-warning').innerText = data.warning;
                 document.getElementById('stat-failed').innerText = data.failed;
+
+                if (data.camera_active !== undefined) {
+                    updateCameraActiveButton(data.camera_active);
+                }
             } catch (err) {
                 console.error("Error loading stats:", err);
+            }
+        }
+
+        async function toggleCameraActive() {
+            try {
+                const res = await fetch('/api/toggle_camera', { method: 'POST' });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    updateCameraActiveButton(data.camera_active);
+                } else {
+                    alert("Error toggling camera: " + data.message);
+                }
+            } catch (err) {
+                console.error("Error communicating with server:", err);
+            }
+        }
+
+        function updateCameraActiveButton(isActive) {
+            const btn = document.getElementById('camera-toggle-btn');
+            if (!btn) return;
+            if (isActive) {
+                btn.title = "Stop Camera";
+                btn.innerHTML = `
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="14" y="4" width="4" height="16" rx="1"/>
+                        <rect x="6" y="4" width="4" height="16" rx="1"/>
+                    </svg>
+                `;
+                btn.style.color = "#ef4444"; // red-orange indicator for Stop
+            } else {
+                btn.title = "Start Camera";
+                btn.innerHTML = `
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polygon points="5 3 19 12 5 21 5 3"/>
+                    </svg>
+                `;
+                btn.style.color = "#10b981"; // green indicator for Play
             }
         }
 

@@ -307,6 +307,7 @@ class AppState:
         self.source = "data/defect.mp4"
         self.source_changed = True  # Start True to trigger initial reader creation in background thread
         self.latest_display_frame = None
+        self.camera_active = True   # Controls camera feed capture loop
         
         # Snapshot of last inspected item to show side-by-side
         self.last_snap_frame = None
@@ -343,6 +344,11 @@ class AppState:
             self.last_snap_id = item_id
             self.last_snap_status = status
 
+    def toggle_camera(self):
+        with self.lock:
+            self.camera_active = not self.camera_active
+            return self.camera_active
+
 global_app_state = AppState()
 
 class InspectionPipelineThread(threading.Thread):
@@ -371,25 +377,42 @@ class InspectionPipelineThread(threading.Thread):
         cooldown_start_time = None
         last_motion_check_time = 0.0
         
+        stability_threshold = 1.2
+        reset_threshold = 2.5
+        settle_duration = 3.0
+        cooldown_duration = 2.0
+        inspect_config = {}
+        cfg = {}
+        pins = []
+        
         reader = None
         is_video_file = False
         frame_delay = 0.0
         motion_history = []
         
         while True:
-            # Check source change parameter updates
+            # Check source change parameter updates and camera toggle state
             with global_app_state.lock:
                 source_changed = global_app_state.source_changed
                 active_source = global_app_state.source
+                camera_active = global_app_state.camera_active
                 if source_changed:
                     global_app_state.source_changed = False
                     
-            if source_changed:
-                if reader is not None:
-                    print(f"[System] Closing previous reader for source change...")
+            should_init_reader = camera_active and (reader is None or source_changed)
+            should_stop_reader = (not camera_active and reader is not None) or (source_changed and reader is not None)
+
+            if should_stop_reader:
+                print(f"[System] Closing reader (camera inactive or source changed)...")
+                if hasattr(reader, 'stopped'):
+                    reader.stopped = True
+                if hasattr(reader, 'cap') and reader.cap is not None:
+                    reader.cap.release()
+                elif hasattr(reader, 'release'):
                     reader.release()
-                    reader = None
-                
+                reader = None
+
+            if should_init_reader:
                 # Re-resolve parameters
                 stability_threshold, reset_threshold, settle_duration, cooldown_duration, inspect_config, cfg = resolve_params(active_source)
                 global_app_state.stability_threshold = stability_threshold
@@ -417,8 +440,19 @@ class InspectionPipelineThread(threading.Thread):
                     print(f"  [Acquisition Pipeline] Thread-decoupled grabber started for live feed '{active_source}' (Latency Reduction Mode)")
                     frame_delay = 0.001
             
-            # Safety check
+            # Safety check & paused display handler
             if reader is None:
+                display_frame = np.zeros((self.h_dim, self.w_dim + 340, 3), dtype=np.uint8)
+                if not camera_active:
+                    cv2.putText(display_frame, "CAMERA FEED PAUSED", (180, 240),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 165, 255), 2, cv2.LINE_AA)
+                    draw_status_panel(display_frame, self.w_dim, self.h_dim, "PAUSED", (0, 165, 255), 0.0, stability_threshold, last_stats_str)
+                else:
+                    cv2.putText(display_frame, "CONNECTING SOURCE...", (180, 240),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.8, (200, 200, 200), 2, cv2.LINE_AA)
+                    draw_status_panel(display_frame, self.w_dim, self.h_dim, "INIT", (200, 200, 200), 0.0, stability_threshold, last_stats_str)
+                
+                global_app_state.set_latest_display_frame(display_frame)
                 time.sleep(0.05)
                 continue
                 
@@ -810,6 +844,13 @@ class InspectionServerHandler(http.server.BaseHTTPRequestHandler):
             except Exception as e:
                 self.send_json({"status": "error", "message": str(e)}, status=500, headers=cors_headers)
                 
+        elif path == "/api/toggle_camera":
+            try:
+                active = global_app_state.toggle_camera()
+                self.send_json({"status": "success", "camera_active": active}, headers=cors_headers)
+            except Exception as e:
+                self.send_json({"status": "error", "message": str(e)}, status=500, headers=cors_headers)
+                
         elif path == "/api/reset_system":
             try:
                 with global_app_state.lock:
@@ -865,6 +906,9 @@ class InspectionServerHandler(http.server.BaseHTTPRequestHandler):
             tot_passed, tot_warn, tot_bent, tot_missing = cursor.fetchone()
             conn.close()
 
+            with global_app_state.lock:
+                camera_active = global_app_state.camera_active
+
             stats = {
                 "total": total or 0,
                 "passed": pass_count or 0,
@@ -874,7 +918,8 @@ class InspectionServerHandler(http.server.BaseHTTPRequestHandler):
                 "total_passed_pins": tot_passed or 0,
                 "total_warning_pins": tot_warn or 0,
                 "total_bent_pins": tot_bent or 0,
-                "total_missing_pins": tot_missing or 0
+                "total_missing_pins": tot_missing or 0,
+                "camera_active": camera_active
             }
             self.send_json(stats, headers=cors_headers)
         except Exception as e:
