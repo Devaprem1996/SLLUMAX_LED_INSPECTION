@@ -256,7 +256,7 @@ class ThreadedCameraGrabber:
         self.source = source
         if isinstance(source, str) and source.isdigit():
             self.source = int(source)
-        self.cap = cv2.VideoCapture(self.source)
+        self.cap = None
         self.ret = False
         self.frame = None
         self.stopped = False
@@ -270,18 +270,45 @@ class ThreadedCameraGrabber:
         return self
         
     def update(self):
+        # Open capture device asynchronously in the background thread
+        try:
+            self.cap = cv2.VideoCapture(self.source)
+        except Exception as e:
+            print(f"[Camera Grabber] Error initializing capture: {e}")
+            self.cap = None
+
         while not self.stopped:
-            ret, frame = self.cap.read()
-            if not ret:
-                # IP Camera Reconnection or webcam timeout
-                print(f"\n[Camera Grabber] Reconnecting to camera source '{self.source}'...")
-                self.cap.release()
-                time.sleep(2.0)
-                self.cap = cv2.VideoCapture(self.source)
-                continue
-            with self.lock:
-                self.ret = ret
-                self.frame = frame.copy()
+            if self.cap is None or not self.cap.isOpened():
+                print(f"\n[Camera Grabber] Connecting to camera source '{self.source}'...")
+                if self.cap is not None:
+                    try:
+                        self.cap.release()
+                    except Exception:
+                        pass
+                try:
+                    self.cap = cv2.VideoCapture(self.source)
+                except Exception as e:
+                    print(f"[Camera Grabber] Connection failed: {e}")
+                    self.cap = None
+                if self.cap is None or not self.cap.isOpened():
+                    time.sleep(2.0)
+                    continue
+            
+            try:
+                ret, frame = self.cap.read()
+                if not ret or frame is None:
+                    # IP Camera Reconnection or webcam timeout
+                    print(f"\n[Camera Grabber] Reconnecting to camera source '{self.source}'...")
+                    self.cap.release()
+                    self.cap = None
+                    time.sleep(2.0)
+                    continue
+                with self.lock:
+                    self.ret = ret
+                    self.frame = frame.copy()
+            except Exception as e:
+                print(f"[Camera Grabber] Read error: {e}")
+                time.sleep(1.0)
             time.sleep(0.001)
                 
     def read(self):
@@ -289,22 +316,31 @@ class ThreadedCameraGrabber:
             return self.ret, self.frame.copy() if self.frame is not None else None
             
     def isOpened(self):
-        return self.cap.isOpened()
+        return self.cap is not None and self.cap.isOpened()
         
     def get(self, propId):
-        return self.cap.get(propId)
+        if self.cap is not None:
+            try:
+                return self.cap.get(propId)
+            except Exception:
+                pass
+        return 0
         
     def release(self):
         self.stopped = True
         if self.thread:
-            self.thread.join(timeout=1.0)
-        self.cap.release()
+            self.thread.join(timeout=0.5)
+        if self.cap is not None:
+            try:
+                self.cap.release()
+            except Exception:
+                pass
 
 class AppState:
     """Thread-safe state container shared between HMI server and vision inspection pipeline."""
     def __init__(self):
         self.lock = threading.Lock()
-        self.source = "data/defect.mp4"
+        self.source = ""
         self.source_changed = True  # Start True to trigger initial reader creation in background thread
         self.latest_display_frame = None
         self.camera_active = True   # Controls camera feed capture loop
@@ -399,11 +435,13 @@ class InspectionPipelineThread(threading.Thread):
                 if source_changed:
                     global_app_state.source_changed = False
                     
-            should_init_reader = camera_active and (reader is None or source_changed)
-            should_stop_reader = (not camera_active and reader is not None) or (source_changed and reader is not None)
+            has_valid_source = active_source is not None and str(active_source).strip() != ""
+            
+            should_init_reader = camera_active and has_valid_source and (reader is None or source_changed)
+            should_stop_reader = (reader is not None) and (not camera_active or not has_valid_source or source_changed)
 
             if should_stop_reader:
-                print(f"[System] Closing reader (camera inactive or source changed)...")
+                print(f"[System] Closing reader (camera inactive, source changed, or invalid source)...")
                 if hasattr(reader, 'stopped'):
                     reader.stopped = True
                 if hasattr(reader, 'cap') and reader.cap is not None:
@@ -440,10 +478,18 @@ class InspectionPipelineThread(threading.Thread):
                     print(f"  [Acquisition Pipeline] Thread-decoupled grabber started for live feed '{active_source}' (Latency Reduction Mode)")
                     frame_delay = 0.001
             
-            # Safety check & paused display handler
+            # Safety check & paused / unselected display handler
             if reader is None:
                 display_frame = np.zeros((self.h_dim, self.w_dim + 340, 3), dtype=np.uint8)
-                if not camera_active:
+                if not has_valid_source:
+                    cv2.putText(display_frame, "NO SOURCE SELECTED", (180, 220),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 165, 255), 2, cv2.LINE_AA)
+                    cv2.putText(display_frame, "Please configure/select a source", (150, 260),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1, cv2.LINE_AA)
+                    cv2.putText(display_frame, "in the settings sidebar.", (190, 290),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1, cv2.LINE_AA)
+                    draw_status_panel(display_frame, self.w_dim, self.h_dim, "NO SOURCE", (0, 165, 255), 0.0, stability_threshold, last_stats_str)
+                elif not camera_active:
                     cv2.putText(display_frame, "CAMERA FEED PAUSED", (180, 240),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 165, 255), 2, cv2.LINE_AA)
                     draw_status_panel(display_frame, self.w_dim, self.h_dim, "PAUSED", (0, 165, 255), 0.0, stability_threshold, last_stats_str)
@@ -1125,12 +1171,16 @@ def main():
     import argparse
     parser = argparse.ArgumentParser(description="Real-time LED Pin Quality Control Web HMI Portal")
     parser.add_argument("--port", type=int, default=8000, help="Web server HMI port. Default is 8000.")
-    parser.add_argument("--source", type=str, default="data/defect.mp4", help="Video source (index, RTSP link, or video file path).")
+    parser.add_argument("--source", type=str, default="", help="Video source (index, RTSP link, or video file path).")
     parser.add_argument("--gold", type=str, default="data/Good Pins.png", help="Path to golden reference image.")
     args = parser.parse_args()
 
     # Initialize Database
     init_db()
+
+    # Sync AppState source with command line argument
+    global_app_state.source = args.source
+    global_app_state.source_changed = True
 
     # Start vision processor background thread
     print(f"\n[System] Initializing background Vision Inspection Pipeline...")
