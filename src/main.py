@@ -611,10 +611,13 @@ class InspectionPipelineThread(threading.Thread):
                     else:
                         overall_status = "PASS"
                         
-                    display_frame = draw_hud(im_test_aligned, pin_results, stats)
+                    # Generate exact timestamp
+                    timestamp = int(time.time())
+                    timestamp_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(timestamp))
+                    
+                    display_frame = draw_hud(im_test_aligned, pin_results, stats, timestamp_str=timestamp_str)
                     
                     # Save snapshot
-                    timestamp = int(time.time())
                     snapshot_status = overall_status.replace(" ", "_").replace(":", "")
                     snapshot_name = f"snap_{timestamp}_{snapshot_status}.png"
                     snapshot_path = os.path.join(DB_DIR, snapshot_name)
@@ -623,7 +626,7 @@ class InspectionPipelineThread(threading.Thread):
                     # Log details
                     log_entry = {
                         "item_id": f"item_{timestamp}",
-                        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(timestamp)),
+                        "timestamp": timestamp_str,
                         "overall_status": overall_status,
                         "sift_alignment": {
                             "tx": float(stats["tx"]),

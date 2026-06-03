@@ -962,6 +962,7 @@
             <header>
                 <h1>LED PIN QC PANEL <span>HMI Web Live</span></h1>
                 <div class="refresh-status">
+                    <span id="current-time-clock" style="font-family: monospace; font-weight: 600; color: rgba(255,255,255,0.9); margin-right: 15px; border-right: 1px solid rgba(255,255,255,0.15); padding-right: 15px;"></span>
                     <div class="refresh-dot"></div>
                     Industrial Portal Running
                 </div>
@@ -1457,6 +1458,22 @@
                 console.error("Error checking latest inspection:", err);
             }
         }
+
+        // Live system clock update
+        function updateClock() {
+            const clockEl = document.getElementById('current-time-clock');
+            if (!clockEl) return;
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            clockEl.textContent = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+        }
+        updateClock();
+        setInterval(updateClock, 1000);
 
         // Initial fetch
         fetchStats();

@@ -269,7 +269,7 @@ def inspect_frame(gray_gold, gray_test_aligned, config=None, pins=None):
 
     return pin_results
 
-def draw_hud(im_test_aligned, pin_results, stats):
+def draw_hud(im_test_aligned, pin_results, stats, timestamp_str=None):
     """Renders the annotated inspection HUD frame panel with separated metrics."""
     h_dim, w_dim = im_test_aligned.shape[:2]
     hud_w = 340
@@ -277,6 +277,17 @@ def draw_hud(im_test_aligned, pin_results, stats):
     canvas[:, :w_dim] = im_test_aligned
     canvas[:, w_dim:] = 24
     cv2.line(canvas, (w_dim, 0), (w_dim, h_dim), (45, 45, 45), 2)
+
+    # Date and Time Overlay on main inspection image (left bottom side of canvas)
+    if timestamp_str is None:
+        import time as _time
+        timestamp_str = _time.strftime("%Y-%m-%d %H:%M:%S")
+    
+    label_text = f"INSPECTED: {timestamp_str}"
+    (text_w, text_h), baseline = cv2.getTextSize(label_text, cv2.FONT_HERSHEY_SIMPLEX, 0.45, 1)
+    # Draw semi-transparent background for readability
+    cv2.rectangle(canvas, (10, h_dim - text_h - 20), (10 + text_w + 10, h_dim - 5), (0, 0, 0), -1)
+    cv2.putText(canvas, label_text, (15, h_dim - 12), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 230, 230), 1, cv2.LINE_AA)
 
     # Color map for the 4 statuses
     colors = {
@@ -388,10 +399,12 @@ def draw_hud(im_test_aligned, pin_results, stats):
     cv2.line(canvas, (w_dim + 20, hy), (w_dim + 320, hy), (60, 60, 60), 1)
     hy += 20
     put("PORTAL LOGS:", w_dim + 20, hy, 0.42, (180, 180, 180))
-    hy += 22
+    hy += 20
     if total_missing > 0 or total_severe_bent > 0:
         put("FAIL: CONNECTOR FAULTY", w_dim + 25, hy, 0.38, (40, 40, 255))
     else:
         put("ALL SCANS COMPLETED: PASS", w_dim + 25, hy, 0.38, (0, 230, 0))
+    hy += 16
+    put(f"Timestamp: {timestamp_str}", w_dim + 25, hy, 0.35, (160, 160, 160))
 
     return canvas
