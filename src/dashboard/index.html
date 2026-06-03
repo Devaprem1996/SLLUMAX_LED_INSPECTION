@@ -214,7 +214,7 @@
         /* Dashboard Layout Grid */
         .dashboard-container {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 400px 1fr;
             gap: 20px;
             padding: 25px 40px;
             flex-grow: 1;
@@ -294,15 +294,16 @@
             border-radius: 12px;
             overflow: hidden;
             position: relative;
-            min-height: 280px;
+            min-height: 200px;
             border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.3s ease;
         }
 
         .live-stream-viewer img {
             width: 100%;
-            height: auto;
-            max-height: 100%;
+            height: 100%;
             object-fit: contain;
+            display: block;
         }
 
         /* 2. Connector Schematic Visualizer Map */
@@ -384,7 +385,7 @@
             border-radius: 12px;
             overflow: hidden;
             position: relative;
-            min-height: 280px;
+            min-height: 500px;
             border: 1px solid rgba(255, 255, 255, 0.05);
             cursor: zoom-in;
             transition: border-color 0.2s;
@@ -394,9 +395,58 @@
             border-color: rgba(99, 102, 241, 0.4);
         }
 
+        /* Maximized Camera Feed Layout */
+        #camera-feed-panel.maximized {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 9999;
+            background: rgba(9, 10, 15, 0.96);
+            backdrop-filter: blur(20px);
+            border-radius: 0;
+            border: none;
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: none;
+        }
+        #camera-feed-panel.maximized .live-stream-viewer {
+            flex-grow: 1;
+            min-height: 0;
+            border-color: rgba(255, 255, 255, 0.1);
+        }
+        #camera-feed-panel.maximized .live-stream-viewer img {
+            height: 100%;
+            width: 100%;
+            object-fit: contain;
+        }
+        .icon-btn {
+            background: none;
+            border: none;
+            color: var(--color-text-secondary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: color 0.2s, transform 0.2s;
+            padding: 6px;
+            border-radius: 6px;
+        }
+        .icon-btn:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.08);
+            transform: scale(1.1);
+        }
+
+        #camera-feed-panel {
+            align-self: start;
+        }
+
         .image-viewer img {
-            max-width: 100%;
-            max-height: 100%;
+            width: 100%;
+            height: 100%;
             object-fit: contain;
         }
 
@@ -845,8 +895,15 @@
                 </div>
 
                 <!-- Real-Time Camera Stream Panel -->
-                <div class="glass-panel inspect-view-grid">
-                    <div class="panel-title">Real-Time Camera / Conveyor Feed</div>
+                <div class="glass-panel inspect-view-grid" id="camera-feed-panel">
+                    <div class="panel-title">
+                        <span>Real-Time Camera / Conveyor Feed</span>
+                        <button onclick="toggleMaximizeCamera()" class="icon-btn" id="maximize-btn" title="Maximize Feed">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="maximize-icon">
+                                <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
+                            </svg>
+                        </button>
+                    </div>
                     <div class="live-stream-viewer">
                         <img src="/api/video_feed" alt="Real-Time Conveyor Stream Overlay" />
                     </div>
@@ -1041,6 +1098,22 @@
             } else {
                 // Point Left
                 icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />';
+            }
+        }
+
+        // Toggle Maximize Camera Feed
+        function toggleMaximizeCamera() {
+            const panel = document.getElementById('camera-feed-panel');
+            const icon = document.getElementById('maximize-icon');
+            const btn = document.getElementById('maximize-btn');
+            panel.classList.toggle('maximized');
+            
+            if (panel.classList.contains('maximized')) {
+                btn.title = "Minimize Feed";
+                icon.innerHTML = '<path d="M4 14h6v6M20 10h-6V4M14 10l7-7M10 14l-7 7"/>';
+            } else {
+                btn.title = "Maximize Feed";
+                icon.innerHTML = '<path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>';
             }
         }
 
