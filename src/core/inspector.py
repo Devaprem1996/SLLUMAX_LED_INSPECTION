@@ -310,14 +310,27 @@ def draw_hud(im_test_aligned, pin_results, stats, timestamp_str=None):
         x2, y2 = x1 + w, y1 + h
         col = colors[pr["status"]]
 
-        cv2.rectangle(canvas, (x1, y1), (x2, y2), col, 1)
+        # Highlight minor bent (WARNING) boxes with thicker lines
+        thick = 2 if pr["status"] == "WARNING" else 1
+        cv2.rectangle(canvas, (x1, y1), (x2, y2), col, thick)
         cv2.circle(canvas, (cx, cy), 1, (255, 100, 0), -1)
         if pr["g_tip"] and pr["t_tip"] and pr["status"] != "MISSING":
             gx, gy = int(x1 + pr["g_tip"][0]), int(y1 + pr["g_tip"][1])
             tx, ty = int(x1 + pr["t_tip"][0]), int(y1 + pr["t_tip"][1])
             cv2.circle(canvas, (tx, ty), 1, col, -1)
             cv2.line(canvas, (gx, gy), (tx, ty), (0, 165, 255), 1)
-        cv2.putText(canvas, pid, (x1, y1 - 2), cv2.FONT_HERSHEY_SIMPLEX, 0.3, col, 1, cv2.LINE_AA)
+            
+        # Display deviation numbers on the images itself for minor bent pins
+        if pr["status"] == "WARNING":
+            label = f"{pid} ({pr['shift']:.1f}px)"
+            # Draw black shadow/outline first for high contrast, then draw yellow text
+            cv2.putText(canvas, label, (x1, y1 - 2), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (0, 0, 0), 2, cv2.LINE_AA)
+            cv2.putText(canvas, label, (x1, y1 - 2), cv2.FONT_HERSHEY_SIMPLEX, 0.35, col, 1, cv2.LINE_AA)
+        else:
+            label = pid
+            # Draw black shadow/outline for normal labels as well
+            cv2.putText(canvas, label, (x1, y1 - 2), cv2.FONT_HERSHEY_SIMPLEX, 0.32, (0, 0, 0), 2, cv2.LINE_AA)
+            cv2.putText(canvas, label, (x1, y1 - 2), cv2.FONT_HERSHEY_SIMPLEX, 0.32, col, 1, cv2.LINE_AA)
 
     # Reference overlay circle
     cv2.circle(canvas, (300, 320), 245, (80, 80, 80), 1, cv2.LINE_AA)
@@ -348,63 +361,41 @@ def draw_hud(im_test_aligned, pin_results, stats, timestamp_str=None):
 
     hy += 50
     cv2.line(canvas, (w_dim + 20, hy), (w_dim + 320, hy), (60, 60, 60), 1)
-    hy += 20
-    put("HOUSING GLOBAL ALIGNMENT:", w_dim + 20, hy, 0.42, (180, 180, 180))
-    hy += 22
-    
-    global_tx = stats.get("tx", 0.0)
-    global_ty = stats.get("ty", 0.0)
-    global_rotation = stats.get("rotation", 0.0)
-    global_scale = stats.get("scale", 1.0)
-    
-    put(f"Translation: X={global_tx:+.2f}, Y={global_ty:+.2f} px", w_dim + 30, hy)
-    hy += 20
-    put(f"Rotation:    {global_rotation:+.3f} deg", w_dim + 30, hy)
-    hy += 20
-    put(f"Scale Ratio: {global_scale:.4f}x", w_dim + 30, hy)
+    hy += 25
+    put("INSPECTION METRICS:", w_dim + 20, hy, 0.52, (180, 180, 180), 2)
+    hy += 30
+    put("Total Pins Scanned:   22", w_dim + 30, hy, 0.48, (255, 255, 255), 2)
+    hy += 26
+    put(f"Passed (Green):       {total_passed}", w_dim + 30, hy, 0.48, (0, 230, 0), 2)
+    hy += 26
+    put(f"Warning (Yellow):     {total_warning}", w_dim + 30, hy, 0.48, (0, 230, 230), 2)
+    hy += 26
+    put(f"Severe Bent (Red):    {total_severe_bent}", w_dim + 30, hy, 0.48, (40, 40, 255), 2)
 
-    hy += 34
+    hy += 36
     cv2.line(canvas, (w_dim + 20, hy), (w_dim + 320, hy), (60, 60, 60), 1)
-    hy += 20
-    put("INSPECTION METRICS:", w_dim + 20, hy, 0.42, (180, 180, 180))
-    hy += 22
-    put("Total Pins Scanned:   22", w_dim + 30, hy, c=(255, 255, 255))
-    hy += 18
-    put(f"Passed (Green):       {total_passed}", w_dim + 30, hy, c=(0, 230, 0))
-    hy += 18
-    put(f"Warning (Yellow):     {total_warning}", w_dim + 30, hy, c=(0, 230, 230))
-    hy += 18
-    put(f"Severe Bent (Red):    {total_severe_bent}", w_dim + 30, hy, c=(40, 40, 255))
-    hy += 18
-    put(f"Missing (Magenta):    {total_missing}", w_dim + 30, hy, c=(255, 0, 255))
-
-    hy += 28
-    cv2.line(canvas, (w_dim + 20, hy), (w_dim + 320, hy), (60, 60, 60), 1)
-    hy += 20
-    put("LEGEND:", w_dim + 20, hy, 0.42, (180, 180, 180))
-    hy += 22
+    hy += 25
+    put("LEGEND:", w_dim + 20, hy, 0.52, (180, 180, 180), 2)
+    hy += 26
     cv2.rectangle(canvas, (w_dim + 30, hy - 11), (w_dim + 45, hy + 1), (0, 230, 0), -1)
     put("Pin Present & Aligned", w_dim + 60, hy, 0.38)
-    hy += 20
+    hy += 22
     cv2.rectangle(canvas, (w_dim + 30, hy - 11), (w_dim + 45, hy + 1), (0, 230, 230), -1)
     put("Minor Bent / Shifted Pin", w_dim + 60, hy, 0.38)
-    hy += 20
+    hy += 22
     cv2.rectangle(canvas, (w_dim + 30, hy - 11), (w_dim + 45, hy + 1), (40, 40, 255), -1)
     put("Severely Bent Pin", w_dim + 60, hy, 0.38)
-    hy += 20
-    cv2.rectangle(canvas, (w_dim + 30, hy - 11), (w_dim + 45, hy + 1), (255, 0, 255), -1)
-    put("Missing Pin", w_dim + 60, hy, 0.38)
 
-    hy += 30
+    hy += 26
     cv2.line(canvas, (w_dim + 20, hy), (w_dim + 320, hy), (60, 60, 60), 1)
-    hy += 20
-    put("PORTAL LOGS:", w_dim + 20, hy, 0.42, (180, 180, 180))
-    hy += 20
+    hy += 25
+    put("PORTAL LOGS:", w_dim + 20, hy, 0.52, (180, 180, 180), 2)
+    hy += 24
     if total_missing > 0 or total_severe_bent > 0:
         put("FAIL: CONNECTOR FAULTY", w_dim + 25, hy, 0.38, (40, 40, 255))
     else:
         put("ALL SCANS COMPLETED: PASS", w_dim + 25, hy, 0.38, (0, 230, 0))
-    hy += 16
+    hy += 18
     put(f"Timestamp: {timestamp_str}", w_dim + 25, hy, 0.35, (160, 160, 160))
 
     return canvas

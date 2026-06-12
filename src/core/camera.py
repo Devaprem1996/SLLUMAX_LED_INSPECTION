@@ -324,7 +324,7 @@ def parse_args():
     parser.add_argument(
         "--gold", "-g",
         type=str,
-        default=os.path.join(DATA_DIR, "Good Pins.png"),
+        default=os.path.join(DATA_DIR, "New_Gold.jpg"),
         help="Path to golden reference image."
     )
     parser.add_argument(
